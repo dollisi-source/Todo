@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>To-dos</title>
+<style>
+  :root{
+    --bg:#000000;
+    --surface:#1c1c1e;
+    --surface-2:#2c2c2e;
+    --surface-3:#3a3a3c;
+    --sep:rgba(255,255,255,.09);
+    --label:#ffffff;
+    --label-2:#98989d;
+    --label-3:#8e8e93;
+    --blue:#0a84ff;
+    --blue-fill:rgba(10,132,255,.18);
+    --red:#ff453a;
+    --red-fill:rgba(255,69,58,.16);
+    --orange:#ff9f0a;
+    --green:#30d158;
+    --radius:16px;
+    --radius-s:11px;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Monaco,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{-webkit-font-smoothing:antialiased}
+  body{
+    font-family:var(--font);
+    background:var(--bg);
+    color-scheme:dark;
+    color:var(--label);
+    line-height:1.45;
+    padding:0 16px 90px;
+    min-height:100vh;
+  }
+  /* dezenter blauer Glow oben, "cool" */
+  body::before{
+    content:"";position:fixed;top:-180px;left:50%;transform:translateX(-50%);
+    width:520px;height:360px;border-radius:50%;
+    background:radial-gradient(circle,rgba(10,132,255,.22),transparent 70%);
+    filter:blur(40px);pointer-events:none;z-index:0;
+  }
+  .wrap{max-width:680px;margin:0 auto;position:relative;z-index:1}
+
+  header{padding:42px 4px 22px}
+  .kicker{font-size:13px;font-weight:600;color:var(--blue);letter-spacing:.01em;margin-bottom:6px}
+  h1{font-size:40px;font-weight:800;letter-spacing:-.025em;line-height:1}
+  .stats{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}
+  .chip{font-size:13px;font-weight:500;color:var(--label-2);background:var(--surface);padding:6px 12px;border-radius:99px}
+  .chip b{color:var(--label);font-weight:700}
+  .chip.over{color:var(--red);background:var(--red-fill)}
+
+  .card{background:var(--surface);border:.5px solid var(--sep);border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,.5)}
+
+  /* Eingabe */
+  .add{padding:12px;margin-bottom:26px;display:flex;flex-direction:column;gap:9px}
+  .add>input[type=text]{width:100%}
+  .add-controls{display:flex;gap:9px;flex-wrap:wrap;align-items:stretch}
+  .add-controls>input,.add-controls>select{flex:1 1 130px;min-width:0}
+  .add-controls>.btn{flex:0 0 auto;white-space:nowrap}
+  .add input,.add select{
+    font:inherit;color:var(--label);background:var(--surface-2);
+    border:none;border-radius:var(--radius-s);padding:12px 13px;
+  }
+  .add input::placeholder{color:var(--label-3)}
+  .add input:focus,.add select:focus{outline:2px solid var(--blue);outline-offset:0}
+  select{appearance:none;-webkit-appearance:none;padding-right:30px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%238e8e93' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;background-position:right 11px center}
+  .btn{font:inherit;font-weight:600;cursor:pointer;border:none;border-radius:var(--radius-s);
+    padding:12px 18px;background:var(--blue);color:#fff;transition:transform .08s,filter .15s,background .15s}
+  .btn:active{transform:scale(.97)}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.plain{background:transparent;color:var(--blue);padding:12px 12px}
+  .btn.plain:hover{background:var(--surface-2);filter:none}
+
+  /* Liste */
+  ul{list-style:none}
+  .item{display:flex;align-items:flex-start;gap:14px;padding:15px 16px;background:var(--surface);
+    border:.5px solid var(--sep);border-radius:14px;margin-bottom:9px;
+    box-shadow:0 4px 18px rgba(0,0,0,.35);animation:in .28s cubic-bezier(.2,.7,.2,1)}
+  @keyframes in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  .item.overdue{background:linear-gradient(var(--red-fill),var(--surface));border-color:rgba(255,69,58,.35)}
+  .item.done{opacity:.5}
+  .chk{appearance:none;-webkit-appearance:none;min-width:25px;height:25px;margin-top:1px;
+    border:2px solid var(--label-3);border-radius:50%;cursor:pointer;position:relative;transition:.18s}
+  .chk:checked{background:var(--blue);border-color:var(--blue)}
+  .chk:checked::after{content:"";position:absolute;left:8px;top:3px;width:5px;height:11px;
+    border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+  .body{flex:1;min-width:0}
+  .txt{font-size:16px;letter-spacing:-.01em;word-break:break-word;cursor:text}
+  .edit{font:inherit;font-size:16px;letter-spacing:-.01em;width:100%;background:var(--surface-2);
+    border:none;border-radius:8px;padding:6px 9px;color:var(--label);outline:2px solid var(--blue)}
+  .item.done .txt{text-decoration:line-through;color:var(--label-2)}
+  .meta{margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;font-weight:600}
+  .tag{padding:3px 9px;border-radius:99px;letter-spacing:.01em}
+  .tag.date{background:var(--blue-fill);color:#5ab0ff}
+  .tag.over{background:var(--red);color:#fff}
+  .tag.prio-hoch{background:var(--red-fill);color:#ff6961}
+  .tag.prio-mittel{background:rgba(255,159,10,.16);color:#ffb340}
+  .tag.prio-niedrig{background:rgba(48,209,88,.16);color:#4fd96b}
+  .del{background:none;border:none;cursor:pointer;color:var(--label-3);font-size:22px;line-height:1;
+    padding:2px 7px;border-radius:8px;transition:.15s}
+  .del:hover{background:var(--red-fill);color:var(--red)}
+  .datechip{font-family:var(--font);font-size:12px;font-weight:600;background:var(--blue-fill);
+    color:#5ab0ff;border:none;border-radius:99px;padding:3px 9px;cursor:pointer}
+  .datechip::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.7}
+  .item.overdue .datechip{background:var(--red-fill);color:#ff6961}
+  .prioedit{cursor:pointer;user-select:none}
+  .tag.prio-none{background:var(--surface-3);color:var(--label-2)}
+  .tag.link{cursor:pointer;text-decoration:none;background:var(--surface-3);color:#cfe6ff}
+  .tag.link:hover{filter:brightness(1.25)}
+  .actions{display:flex;gap:2px;align-items:flex-start}
+  .linkbtn{background:none;border:none;cursor:pointer;font-size:15px;line-height:1;padding:3px 5px;border-radius:8px;opacity:.4;transition:.15s}
+  .linkbtn:hover{background:var(--surface-2);opacity:1}
+  .linkbtn.set{opacity:1}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:-14px 4px 18px}
+  .segments{display:inline-flex;background:var(--surface-2);border-radius:11px;padding:3px;gap:2px}
+  .seg{font:inherit;font-size:13px;font-weight:600;color:var(--label-2);background:none;border:none;
+    cursor:pointer;padding:6px 13px;border-radius:8px;transition:.15s}
+  .seg.active{background:var(--surface-3);color:var(--label)}
+  .seg:hover:not(.active){color:var(--label)}
+  .tool-actions{display:flex;gap:6px}
+  .selchip{font-size:12px;font-weight:600;border-radius:99px;padding:3px 20px 3px 9px;
+    background-position:right 6px center;cursor:pointer;color:var(--label);max-width:130px}
+  .selchip.prio-hoch{background-color:var(--red-fill);color:#ff6961}
+  .selchip.prio-mittel{background-color:rgba(255,159,10,.16);color:#ffb340}
+  .selchip.prio-niedrig{background-color:rgba(48,209,88,.16);color:#4fd96b}
+  .selchip.prio-none{background-color:var(--surface-3);color:var(--label-2)}
+  .selchip.cat-orga{background-color:rgba(191,90,242,.2);color:#d9a6ff}
+  .selchip.cat-daw{background-color:rgba(100,210,255,.2);color:#8fdcff}
+  .selchip.cat-sonst{background-color:var(--surface-3);color:var(--label)}
+  .selchip.cat-none{background-color:var(--surface-3);color:var(--label-2)}
+  .drag{cursor:grab;color:var(--label-3);font-size:15px;line-height:1;padding:3px 1px;margin-top:2px;user-select:none}
+  .drag:active{cursor:grabbing}
+  .item.dragging{opacity:.45;outline:2px dashed var(--blue);outline-offset:-2px}
+  .item.editing{outline:none}
+  .toolbar .btn{padding:7px 12px;font-size:13px}
+  .toolbar .btn:disabled{opacity:.35;cursor:default}
+  .toolbar .btn:disabled:hover{background:transparent}
+  .search{width:100%;font:inherit;font-size:15px;color:var(--label);background:var(--surface);
+    border:.5px solid var(--sep);border-radius:12px;padding:14px 16px 14px 42px;margin:4px 0 20px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M21 21l-4.3-4.3'/></svg>");
+    background-repeat:no-repeat;background-position:left 14px center}
+  .search::placeholder{color:var(--label-3)}
+  .search:focus{outline:2px solid var(--blue);outline-offset:0;border-color:transparent}
+  .empty{text-align:center;color:var(--label-2);padding:46px 10px;font-size:16px}
+
+  /* Agenten-Bereich */
+  .agent{margin-top:34px;padding:20px}
+  .agent h2{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+  .agent p.desc{font-size:14px;color:var(--label-2);margin-bottom:14px}
+  .legend{font-size:12.5px;background:var(--surface-2);border-radius:var(--radius-s);
+    padding:12px 13px;margin-bottom:13px;color:var(--label-2);line-height:1.7}
+  .legend code{background:var(--blue-fill);color:#5ab0ff;padding:2px 6px;border-radius:5px;font-family:var(--mono);font-size:12px}
+  textarea{width:100%;min-height:155px;font-family:var(--mono);font-size:13px;padding:13px;
+    border:none;border-radius:var(--radius-s);background:var(--surface-2);color:var(--label);
+    resize:vertical;line-height:1.7}
+  textarea:focus{outline:2px solid var(--blue)}
+  .agent-btns{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+  .note{font-size:12.5px;color:var(--label-2);margin-top:11px}
+  footer{text-align:center;margin-top:38px;font-size:12px;color:var(--label-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Aufgaben aus dem Postfach</div>
+    <h1>To-dos</h1>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="card add">
+    <input type="text" id="newText" placeholder="Neue Aufgabe …" aria-label="Aufgabentext">
+    <div class="add-controls">
+      <input type="date" id="newDate" aria-label="Fälligkeitsdatum">
+      <select id="newPrio" aria-label="Priorität">
+        <option value="">Priorität</option>
+        <option value="hoch">Hoch</option>
+        <option value="mittel" selected>Mittel</option>
+        <option value="niedrig">Niedrig</option>
+      </select>
+      <select id="newCat" aria-label="Kategorie">
+        <option value="">Kategorie</option>
+        <option value="orga">🗂 Orga</option>
+        <option value="daw">🎛 DAW</option>
+        <option value="sonst">• Sonstige</option>
+      </select>
+      <button class="btn" id="addBtn">Hinzufügen</button>
+    </div>
+  </div>
+
+  <input type="search" id="search" class="search" placeholder="Aufgaben durchsuchen …" aria-label="Aufgaben durchsuchen">
+
+  <div class="toolbar">
+    <div class="segments" id="filters">
+      <button class="seg active" data-f="alle">Alle</button>
+      <button class="seg" data-f="offen">Offen</button>
+      <button class="seg" data-f="ueberfaellig">Überfällig</button>
+      <button class="seg" data-f="erledigt">Erledigt</button>
+    </div>
+    <div class="tool-actions">
+      <button class="btn plain" id="sortBtn">⇅ Auto</button>
+      <button class="btn plain" id="undoBtn" disabled>↶ Rückgängig</button>
+      <button class="btn plain" id="clearDoneBtn">Erledigte entfernen</button>
+    </div>
+  </div>
+
+  <ul id="list"></ul>
+
+  <div class="card agent">
+    <h2>Für Claude (Massen-Bearbeitung)</h2>
+    <p class="desc">Claude bearbeitet die Liste am zuverlässigsten über dieses Textfeld: Text neu schreiben, dann „Übernehmen“.</p>
+    <div class="legend">
+      Ein Eintrag pro Zeile:<br>
+      <code>- [ ] Aufgabentext | 2026-06-01 | hoch | https://mail… | daw</code><br>
+      <code>- [x] Erledigte Aufgabe | | mittel | | orga</code><br>
+      Reihenfolge: Text | Datum (<code>JJJJ-MM-TT</code>) | Priorität (<code>hoch</code>/<code>mittel</code>/<code>niedrig</code>) | Mail-Link | Kategorie (<code>orga</code>/<code>daw</code>/<code>sonst</code>). Alles außer Text optional.
+    </div>
+    <textarea id="bulk" spellcheck="false" aria-label="Aufgabenliste als Text"></textarea>
+    <div class="agent-btns">
+      <button class="btn" id="applyBtn">Übernehmen</button>
+      <button class="btn plain" id="reloadBtn">Aus Liste neu laden</button>
+      <button class="btn plain" id="notifyBtn">🔔 Erinnerungen</button>
+      <button class="btn plain" id="exportBtn">JSON sichern</button>
+      <button class="btn plain" id="importBtn">JSON laden</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+    <p class="note" id="notifyNote"></p>
+  </div>
+
+  <footer>Daten lokal in diesem Browser gespeichert · <span id="saveState">bereit</span></footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const KEY="todo_data_v1";
+  let tasks=[];
+  let lastNotified=0;
+  let editingId=null;
+  let history=[];
+  let filter="alle";
+  let sortMode="auto";
+  let dragId=null;
+  let query="";
+
+  function load(){
+    try{ const raw=localStorage.getItem(KEY); tasks=raw?JSON.parse(raw):seed(); }
+    catch(e){ tasks=seed(); }
+    try{ const sm=localStorage.getItem("todo_sortmode"); if(sm==="manuell"||sm==="auto") sortMode=sm; }catch(e){}
+  }
+  function save(){
+    try{ localStorage.setItem(KEY,JSON.stringify(tasks)); setSaveState("gespeichert"); }
+    catch(e){ setSaveState("nur diese Sitzung (Speicher gesperrt – als Datei öffnen)"); }
+  }
+  function setSaveState(t){ const el=document.getElementById("saveState"); if(el) el.textContent=t; }
+  function seed(){ return [{id:uid(),text:"Beispiel: Rechnung von Lieferant prüfen",due:"",prio:"mittel",cat:"orga",link:"",done:false}]; }
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+  function todayStr(){
+    const d=new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function isOverdue(t){ return !!(!t.done && t.due && t.due < todayStr()); }
+  function prioRank(p){ return p==="hoch"?0:p==="mittel"?1:p==="niedrig"?2:3; }
+  function fmtDate(s){ if(!s) return ""; const [y,m,d]=s.split("-"); return d?d+"."+m+"."+y:s; }
+  function sortTasks(){
+    if(sortMode==="manuell") return;
+    tasks.sort((a,b)=>{
+      if(a.done!==b.done) return a.done?1:-1;
+      const ao=isOverdue(a),bo=isOverdue(b);
+      if(ao!==bo) return ao?-1:1;
+      if(a.due&&b.due&&a.due!==b.due) return a.due<b.due?-1:1;
+      if(a.due&&!b.due) return -1;
+      if(!a.due&&b.due) return 1;
+      return prioRank(a.prio)-prioRank(b.prio);
+    });
+  }
+
+  function prioSelect(t){
+    const o=[["","Priorität"],["hoch","Hoch"],["mittel","Mittel"],["niedrig","Niedrig"]];
+    return '<select class="selchip prio-'+(t.prio||"none")+'" data-id="'+t.id+'" data-kind="prio" title="Priorität">'+
+      o.map(x=>'<option value="'+x[0]+'"'+((t.prio||"")===x[0]?" selected":"")+'>'+x[1]+'</option>').join("")+'</select>';
+  }
+  function catSelect(t){
+    const o=[["","Kategorie"],["orga","🗂 Orga"],["daw","🎛 DAW"],["sonst","• Sonstige"]];
+    return '<select class="selchip cat-'+(t.cat||"none")+'" data-id="'+t.id+'" data-kind="cat" title="Kategorie">'+
+      o.map(x=>'<option value="'+x[0]+'"'+((t.cat||"")===x[0]?" selected":"")+'>'+x[1]+'</option>').join("")+'</select>';
+  }
+  function moveTask(fromId,toId){
+    if(fromId===toId) return;
+    const from=tasks.findIndex(t=>t.id===fromId); if(from<0) return;
+    const item=tasks.splice(from,1)[0];
+    let to=tasks.findIndex(t=>t.id===toId);
+    if(to<0) tasks.push(item); else tasks.splice(to,0,item);
+  }
+
+  function render(){
+    sortTasks();
+    const list=document.getElementById("list");
+    list.innerHTML="";
+    const q=query.trim().toLowerCase();
+    const view=tasks.filter(t=>{
+      if(q && t.text.toLowerCase().indexOf(q)<0) return false;
+      if(filter==="offen") return !t.done;
+      if(filter==="erledigt") return t.done;
+      if(filter==="ueberfaellig") return isOverdue(t);
+      return true;
+    });
+    if(tasks.length===0) list.innerHTML='<li class="empty">Keine Aufgaben – alles erledigt ✦</li>';
+    else if(view.length===0) list.innerHTML='<li class="empty">'+(q?'Keine Treffer für „'+esc(query.trim())+'".':'Nichts in dieser Ansicht.')+'</li>';
+    view.forEach(t=>{
+      const over=isOverdue(t);
+      const canDrag=sortMode==="manuell" && filter==="alle" && !query.trim();
+      const li=document.createElement("li");
+      li.className="item"+(t.done?" done":"")+(over?" overdue":"")+(t.id===editingId?" editing":"");
+      if(canDrag){ li.draggable=true; li.dataset.id=t.id; }
+      li.innerHTML=
+        (canDrag?'<span class="drag" title="Ziehen zum Sortieren">⠿</span>':'')+
+        '<input type="checkbox" class="chk" '+(t.done?"checked":"")+' data-id="'+t.id+'" aria-label="erledigt">'+
+        '<div class="body">'+
+          (t.id===editingId
+            ? '<input class="edit" data-id="'+t.id+'" value="'+esc(t.text)+'" aria-label="Aufgabe bearbeiten">'
+            : '<div class="txt" data-id="'+t.id+'" title="Doppelklick zum Bearbeiten">'+esc(t.text)+'</div>')+
+          '<div class="meta">'+
+          (over?'<span class="tag over">Überfällig</span>':'')+
+          '<input type="date" class="datechip" data-id="'+t.id+'" value="'+(t.due||"")+'" title="Datum ändern">'+
+          prioSelect(t)+
+          catSelect(t)+
+          (t.link?'<a class="tag link" href="'+esc(t.link)+'" target="_blank" rel="noopener">🔗 Mail</a>':'')+
+        '</div></div>'+
+        '<div class="actions">'+
+          '<button class="linkbtn'+(t.link?" set":"")+'" data-id="'+t.id+'" title="Mail-Link setzen/ändern">🔗</button>'+
+          '<button class="del" data-id="'+t.id+'" title="Löschen" aria-label="Löschen">×</button>'+
+        '</div>';
+      list.appendChild(li);
+    });
+    renderStats();
+    document.querySelectorAll("#filters .seg").forEach(b=>b.classList.toggle("active", b.getAttribute("data-f")===filter));
+    const sb=document.getElementById("sortBtn");
+    if(sb){ sb.textContent=sortMode==="manuell"?"⇅ Manuell":"⇅ Auto"; sb.title=sortMode==="manuell"?"Manuelle Reihenfolge – per Drag & Drop sortieren (klicken für Auto)":"Automatische Sortierung (klicken für manuelle Reihenfolge)"; }
+    const ub=document.getElementById("undoBtn"); if(ub) ub.disabled=history.length===0;
+    if(document.activeElement!==document.getElementById("bulk")) syncTextarea();
+    if(editingId!=null){ const inp=list.querySelector("input.edit"); if(inp){ inp.focus(); inp.select(); } }
+  }
+  function renderStats(){
+    const open=tasks.filter(t=>!t.done).length, done=tasks.filter(t=>t.done).length, over=tasks.filter(isOverdue).length;
+    document.getElementById("stats").innerHTML=
+      '<span class="chip"><b>'+open+'</b> offen</span>'+
+      '<span class="chip"><b>'+done+'</b> erledigt</span>'+
+      (over?'<span class="chip over">⚠ '+over+' überfällig</span>':'');
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+  function snapshot(){ try{ history.push(JSON.stringify(tasks)); if(history.length>50) history.shift(); }catch(e){} }
+  function undo(){
+    if(history.length===0) return;
+    editingId=null;
+    try{ tasks=JSON.parse(history.pop()); }catch(e){ return; }
+    save(); render();
+  }
+  function cleanLink(s){
+    s=(s||"").trim();
+    if(!s) return "";
+    if(/^(https?:|mailto:)/i.test(s)) return s;
+    if(/^[\w.-]+\.[a-z]{2,}/i.test(s)) return "https://"+s;
+    return "";
+  }
+
+  function syncTextarea(){
+    document.getElementById("bulk").value=tasks.map(t=>
+      "- "+(t.done?"[x]":"[ ]")+" "+t.text+" | "+(t.due||"")+" | "+(t.prio||"")+" | "+(t.link||"")+" | "+(t.cat||"")
+    ).join("\n");
+  }
+  function parseBulk(text){
+    const out=[], map={high:"hoch",medium:"mittel",low:"niedrig",hoch:"hoch",mittel:"mittel",niedrig:"niedrig"};
+    const catmap={orga:"orga",organisatorisch:"orga",daw:"daw",arbeit:"daw",sonst:"sonst",sonstige:"sonst",other:"sonst"};
+    text.split("\n").forEach(line=>{
+      line=line.trim(); if(!line) return;
+      const m=line.match(/^[-*]?\s*\[([ xX])\]\s*(.*)$/);
+      let done=false,rest=line;
+      if(m){ done=m[1].toLowerCase()==="x"; rest=m[2]; }
+      const parts=rest.split("|").map(s=>s.trim());
+      const text2=parts[0]; if(!text2) return;
+      let due=parts[1]||""; if(due&&!/^\d{4}-\d{2}-\d{2}$/.test(due)) due="";
+      let prio=map[(parts[2]||"").toLowerCase()]||"";
+      let link=cleanLink(parts[3]||"");
+      let cat=catmap[(parts[4]||"").toLowerCase()]||"";
+      out.push({id:uid(),text:text2,due,prio,link,cat,done});
+    });
+    return out;
+  }
+
+  function notifyNote(t){ document.getElementById("notifyNote").textContent=t; }
+  function checkReminders(){
+    const over=tasks.filter(isOverdue);
+    if(over.length===0) return;
+    if(!("Notification" in window)||Notification.permission!=="granted") return;
+    const now=Date.now(); if(now-lastNotified<5*60*1000) return; lastNotified=now;
+    try{ new Notification("Überfällige Aufgaben: "+over.length,{body:over.slice(0,4).map(t=>"• "+t.text).join("\n")+(over.length>4?"\n…":"")}); }catch(e){}
+  }
+
+  function commitEdit(){
+    if(editingId==null) return;
+    const inp=document.querySelector("input.edit");
+    const t=tasks.find(x=>x.id===editingId);
+    const v=inp?inp.value.trim():"";
+    editingId=null;
+    if(t&&v&&v!==t.text){ snapshot(); t.text=v; save(); render(); }
+    else { render(); }
+  }
+  function cancelEdit(){ if(editingId==null) return; editingId=null; render(); }
+
+  function addTask(){
+    const text=document.getElementById("newText").value.trim(); if(!text) return;
+    snapshot();
+    tasks.push({id:uid(),text,due:document.getElementById("newDate").value||"",prio:document.getElementById("newPrio").value||"",cat:document.getElementById("newCat").value||"",link:"",done:false});
+    document.getElementById("newText").value=""; document.getElementById("newDate").value="";
+    save(); render(); document.getElementById("newText").focus();
+  }
+
+  document.getElementById("addBtn").addEventListener("click",addTask);
+  document.getElementById("newText").addEventListener("keydown",e=>{ if(e.key==="Enter") addTask(); });
+  document.getElementById("list").addEventListener("click",e=>{
+    const el=e.target; const id=el.getAttribute("data-id"); if(!id) return;
+    if(el.classList.contains("chk")){ const t=tasks.find(x=>x.id===id); if(t){ snapshot(); t.done=el.checked; save(); render(); } }
+    else if(el.classList.contains("del")){ snapshot(); tasks=tasks.filter(x=>x.id!==id); save(); render(); }
+    else if(el.classList.contains("linkbtn")){
+      const t=tasks.find(x=>x.id===id); if(!t) return;
+      const v=prompt("Mail-Link / URL (leer = entfernen):", t.link||"");
+      if(v===null) return;
+      const cl=cleanLink(v);
+      if(v.trim() && !cl){ alert("Kein gültiger Link – bitte mit https:// oder mailto: angeben."); return; }
+      snapshot(); t.link=cl; save(); render();
+    }
+  });
+  document.getElementById("list").addEventListener("change",e=>{
+    const el=e.target; const id=el.getAttribute("data-id"); if(!id) return;
+    const t=tasks.find(x=>x.id===id); if(!t) return;
+    if(el.classList.contains("datechip")){ snapshot(); t.due=el.value||""; save(); render(); }
+    else if(el.classList.contains("selchip")){
+      const kind=el.getAttribute("data-kind"); snapshot();
+      if(kind==="prio") t.prio=el.value||""; else if(kind==="cat") t.cat=el.value||"";
+      save(); render();
+    }
+  });
+  document.getElementById("list").addEventListener("dblclick",e=>{
+    const el=e.target.closest?e.target.closest(".txt"):null; if(!el) return;
+    const id=el.getAttribute("data-id"); if(!id) return;
+    editingId=id; render();
+  });
+  document.getElementById("list").addEventListener("keydown",e=>{
+    if(!e.target.classList||!e.target.classList.contains("edit")) return;
+    if(e.key==="Enter"){ e.preventDefault(); commitEdit(); }
+    else if(e.key==="Escape"){ e.preventDefault(); cancelEdit(); }
+  });
+  document.getElementById("list").addEventListener("focusout",e=>{
+    if(!e.target.classList||!e.target.classList.contains("edit")) return;
+    commitEdit();
+  });
+  document.getElementById("applyBtn").addEventListener("click",()=>{ snapshot(); tasks=parseBulk(document.getElementById("bulk").value); save(); render(); });
+  document.getElementById("reloadBtn").addEventListener("click",syncTextarea);
+  document.getElementById("notifyBtn").addEventListener("click",()=>{
+    if(!("Notification" in window)){ notifyNote("Dieser Browser unterstützt keine Benachrichtigungen."); return; }
+    Notification.requestPermission().then(p=>{
+      notifyNote(p==="granted"?"Erinnerungen aktiv – überfällige Aufgaben werden gemeldet, solange dieser Tab offen ist.":"Benachrichtigungen nicht erlaubt. Überfällige Aufgaben bleiben rot markiert.");
+      if(p==="granted"){ lastNotified=0; checkReminders(); }
+    });
+  });
+  document.getElementById("exportBtn").addEventListener("click",()=>{
+    const blob=new Blob([JSON.stringify(tasks,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=url; a.download="todos.json"; a.click(); URL.revokeObjectURL(url);
+  });
+  document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
+  document.getElementById("importFile").addEventListener("change",e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const data=JSON.parse(r.result); if(!Array.isArray(data)) throw 0;
+        snapshot();
+        tasks=data.map(t=>({id:t.id||uid(),text:String(t.text||""),due:/^\d{4}-\d{2}-\d{2}$/.test(t.due)?t.due:"",prio:["hoch","mittel","niedrig"].includes(t.prio)?t.prio:"",link:cleanLink(t.link),cat:["orga","daw","sonst"].includes(t.cat)?t.cat:"",done:!!t.done})).filter(t=>t.text);
+        save(); render();
+      }catch(err){ alert("Datei konnte nicht gelesen werden – ist es eine gültige todos.json?"); }
+    };
+    r.readAsText(file); e.target.value="";
+  });
+
+  document.getElementById("list").addEventListener("dragstart",e=>{
+    const li=e.target.closest?e.target.closest(".item"):null; if(!li||!li.draggable) return;
+    dragId=li.dataset.id; li.classList.add("dragging");
+    if(e.dataTransfer){ e.dataTransfer.effectAllowed="move"; try{ e.dataTransfer.setData("text/plain",dragId); }catch(_){ } }
+  });
+  document.getElementById("list").addEventListener("dragover",e=>{
+    if(dragId==null) return; e.preventDefault(); if(e.dataTransfer) e.dataTransfer.dropEffect="move";
+  });
+  document.getElementById("list").addEventListener("drop",e=>{
+    if(dragId==null) return; e.preventDefault();
+    const li=e.target.closest?e.target.closest(".item"):null; if(!li) return;
+    const toId=li.dataset.id; if(!toId||toId===dragId) return;
+    snapshot(); moveTask(dragId,toId); save(); render();
+  });
+  document.getElementById("list").addEventListener("dragend",()=>{
+    dragId=null; const d=document.querySelector(".item.dragging"); if(d) d.classList.remove("dragging");
+  });
+
+  document.getElementById("sortBtn").addEventListener("click",()=>{
+    sortMode = sortMode==="auto" ? "manuell" : "auto";
+    try{ localStorage.setItem("todo_sortmode",sortMode); }catch(e){}
+    if(sortMode==="manuell" && filter!=="alle") filter="alle";
+    render();
+  });
+
+  document.getElementById("search").addEventListener("input",e=>{ query=e.target.value; render(); });
+  document.getElementById("filters").addEventListener("click",e=>{
+    const f=e.target.getAttribute("data-f"); if(!f) return;
+    filter=f; render();
+  });
+  document.getElementById("undoBtn").addEventListener("click",undo);
+  document.getElementById("clearDoneBtn").addEventListener("click",()=>{
+    if(!tasks.some(t=>t.done)) return;
+    snapshot(); tasks=tasks.filter(t=>!t.done); save(); render();
+  });
+
+  load(); render();
+  if("Notification" in window && Notification.permission==="granted") checkReminders();
+  setInterval(()=>{ if(editingId==null && !document.querySelector(".datechip:focus")) render(); checkReminders(); },60*1000);
+})();
+</script>
+</body>
+</html>
